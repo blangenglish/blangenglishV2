@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS student_select_own_subscription ON subscriptions; CREATE POLICY student_select_own_subscription ON subscriptions FOR SELECT USING (auth.uid() = student_id);

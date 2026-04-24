@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS student_view_own_payments ON payment_history; CREATE POLICY student_view_own_payments ON payment_history FOR SELECT USING (auth.uid() = student_id); DROP POLICY IF EXISTS student_insert_own_payments ON payment_history; CREATE POLICY student_insert_own_payments ON payment_history FOR INSERT WITH CHECK (auth.uid() = student_id);

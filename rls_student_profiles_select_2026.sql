@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS student_select_own_profile ON student_profiles; CREATE POLICY student_select_own_profile ON student_profiles FOR SELECT USING (auth.uid() = id);

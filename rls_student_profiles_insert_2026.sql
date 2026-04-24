@@ -1,0 +1,1 @@
+ALTER TABLE student_profiles ENABLE ROW LEVEL SECURITY; DROP POLICY IF EXISTS student_insert_own_profile ON student_profiles; CREATE POLICY student_insert_own_profile ON student_profiles FOR INSERT WITH CHECK (auth.uid() = id);
