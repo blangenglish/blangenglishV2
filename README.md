@@ -1,27 +1,82 @@
-# 技术栈
+# Edge Functions Testing Quick Reference
 
-该项目使用以下技术栈
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Running Specific Test Files
+
+### Using npm scripts
+```bash
+# Run a specific test file
+npm run test:edge-functions:file tests/my-function.test.ts
+
+# Run all tests
+npm run test:edge-functions
 
 
-# 开发流程
+### Using Deno directly
+```bash
+# Run a specific test file
+deno test --allow-net --allow-env tests/my-function.test.ts
 
-1. 参考用户需求，调整 src/index.css 与 tailwind.config.ts 的主题风格
-2. 根据用户需求，划分出所需要实现的页面
-3. 整理好每个页面需要实现的功能，在 pages 下创建对应的文件夹及其下入口 Index.tsx
-4. 在 App.tsx 中创建路由配置，引入刚才的各个入口文件 Index.tsx
-5. 根据刚才整理的需求，如果需求简单，可以直接在 Index.tsx 中完成该页面的全部工作
-6. 如果需求复杂，可以将 page 拆分为若干个组件来实现，目录结构如下：
-    - Index.tsx 入口
-    - /components/ 组件
-    - /hooks/ 钩子
-    - /stores/ 如果有复杂交互通信时，可以使用 zustand 进行通信
-7. 在完成需求后，需要进行 pnpm i 安装依赖，并使用 npm run lint & npx tsc --noEmit -p tsconfig.app.json --strict 进行检查，并修复问题
+# Run all tests in tests directory
+deno test --allow-net --allow-env tests/
 
-# 接入后端接口
-- 当需要新增接口或者操作 supabase 时，需要先在 src/api 新增对应 api 文件，并导出对应的数据类型，可以参考 src/demo.ts 文件，如果是 supabase 还需要做好实现
-- 前端与 supabase 做实现时，都需要完全按照数据类型进行实现，尽可能避免修改定好的数据类型，如果出现修改，需要检查所有引用该类型的文件
+# Run tests matching a pattern
+deno test --allow-net --allow-env tests/*.test.ts
+```
+
+### Using Deno tasks
+```bash
+# Run a specific test file
+deno task test -- tests/my-function.test.ts
+
+# Run all tests
+deno task test
+```
+
+## Environment Variables Setup
+
+### Option 1: Using .env File (Recommended)
+```bash
+# Create .env file from template
+cp tests/env.example .env
+
+# Edit .env file with your actual values
+# The file will be automatically loaded when running tests
+```
+
+### Option 2: Export Environment Variables
+```bash
+export SUPABASE_URL="https://your-project-ref.supabase.co"
+export SUPABASE_ANON_KEY="your-anon-key"
+```
+
+### Environment Variables Loading Order
+1. **System environment variables** (exported in shell)
+2. **`.env` file** (automatically loaded with `--env-file=.env`)
+3. **Code-set variables** (using `Deno.env.set()`)
+
+## Test File Structure
+
+```typescript
+import { assertEquals, assertExists } from "../deps.ts"
+
+const FUNCTION_NAME = "your-function-name"
+
+Deno.test("Your Function - Basic Test", async () => {
+  // Your test implementation
+})
+```
+
+## Available Test Files
+
+- `remote-advanced.test.ts` - Advanced remote tests using fetch
+- `supabase-client.test.ts` - Tests using Supabase client library
+- `my-function.test.ts` - Template for custom function tests
+
+## Creating Edge Functions
+
+To create a new Edge Function:
+
+1. Create a new `.ts` file directly in the `supabase/edge_function/` directory
+2. Copy `example-function.ts` as a starting point
+3. Implement your function logic
+4. Create corresponding test files in the `tests/` directory
