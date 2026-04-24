@@ -1,0 +1,214 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Cormorant+Garamond:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+==========================================================================
+【AI HANDOVER NOTE】
+1. DESIGN PHILOSOPHY:
+   - Neo-minimalism meets Educational Excellence: Clean, professional aesthetic targeting serious English learners (teens to adults)
+   - Swiss typography influence: Bold geometric sans for impact (BLANG brand), elegant serif for sophistication (ENGLISH ACADEMY)
+   - Card-based modular surfaces (Bento style) for features, pricing tiers, and testimonials
+   - Physicality through subtle rim-light effects on interactive elements and CTAs
+   - Professional SaaS platform feel with educational warmth — not childish, but approachable and trustworthy
+
+2. TYPOGRAPHY:
+   - Sans (Inter): Modern, highly legible geometric sans with excellent screen readability. Weight range 400-800 supports hierarchy from body text to bold CTAs. Technical precision matches SaaS platform expectations while remaining friendly.
+   - Serif (Cormorant Garamond): Elegant display serif for headings and the 'ENGLISH ACADEMY' brand element. Adds sophistication and academic credibility without being stuffy.
+   - Mono (JetBrains Mono): Used sparingly for pricing figures, progress metrics, and technical UI elements (lesson counters, statistics).
+
+3. COLOR SYSTEM:
+   - Brand primary: Purple (#9333ea / hue ~280°) — vibrant, energetic, associated with creativity and learning. This purple is the hero color from the BLANG logo.
+   - --brand maps to --primary (CTAs, interactive elements), --accent (highlights, badges, progress indicators), and --ring (focus states)
+   - Black (#000000) for bold typography and strong contrast, reflecting the logo's confident black 'BLANG' text
+   - Semantic colors: Success (green ~150°) for completed lessons/achievements, Warning (amber ~45°) for reminders/deadlines, Destructive (red ~10°) for errors/cancellations
+   - Light mode: Crisp white background (L=0.99) with deep black text (L=0.15) for maximum readability — essential for educational content
+   - Dark mode: Rich dark background (L=0.12) with warm undertones, purple accents slightly more saturated for vibrancy
+
+4. USAGE GUIDE:
+   - Layout: Full-width hero with centered container (max-w-7xl) for content sections. Card-based pricing and features use Bento grid patterns.
+   - Purple accent usage: Primary CTAs ('Start Learning', 'Subscribe Now'), interactive hover states, progress bars, badges ('Popular Plan'), decorative dots/lines inspired by logo
+   - Subtle backdrop-blur on navigation bar for modern glassmorphism effect
+   - Rim-light effect (1px light border + subtle shadow) on cards and buttons for depth and physicality
+   - Section dividers: Thin horizontal lines with purple accent dots (echoing logo design)
+   - Testimonial cards: Elevated with subtle shadows, purple accent on 5-star ratings
+   - Pricing cards: 'Premium' tier highlighted with purple border and subtle purple background tint
+   - Accessibility: Maintain WCAG AA contrast ratios, ensure purple CTAs have sufficient contrast against white/dark backgrounds
+==========================================================================
+*/
+
+:root {
+  /* Typography */
+  --font-sans: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: JetBrains Mono, 'Courier New', monospace;
+  
+  /* Radius */
+  --radius: 0.75rem;
+
+  /* Core UI Tokens */
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.15 0 0);
+  --card: oklch(0.98 0 0);
+  --card-foreground: oklch(0.15 0 0);
+  --popover: oklch(0.99 0 0);
+  --popover-foreground: oklch(0.15 0 0);
+  --primary: oklch(0.55 0.25 285);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.94 0.01 285);
+  --secondary-foreground: oklch(0.20 0 0);
+  --muted: oklch(0.95 0.005 270);
+  --muted-foreground: oklch(0.48 0.01 270);
+  --accent: oklch(0.92 0.04 285);
+  --accent-foreground: oklch(0.20 0 0);
+  --destructive: oklch(0.58 0.22 15);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.88 0.01 270);
+  --input: oklch(0.88 0.01 270);
+  --ring: oklch(0.55 0.25 285);
+  
+  /* Chart Tokens */
+  --chart-1: oklch(0.55 0.25 285);
+  --chart-2: oklch(0.60 0.20 150);
+  --chart-3: oklch(0.65 0.18 45);
+  --chart-4: oklch(0.58 0.22 15);
+  --chart-5: oklch(0.62 0.16 220);
+  
+  /* Sidebar Tokens */
+  --sidebar: oklch(0.97 0.005 270);
+  --sidebar-foreground: oklch(0.20 0 0);
+  --sidebar-primary: oklch(0.55 0.25 285);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.92 0.04 285);
+  --sidebar-accent-foreground: oklch(0.20 0 0);
+  --sidebar-border: oklch(0.88 0.01 270);
+  --sidebar-ring: oklch(0.55 0.25 285);
+}
+
+.dark {
+  --background: oklch(0.12 0.01 285);
+  --foreground: oklch(0.92 0.01 270);
+  --card: oklch(0.15 0.015 285);
+  --card-foreground: oklch(0.92 0.01 270);
+  --popover: oklch(0.14 0.015 285);
+  --popover-foreground: oklch(0.92 0.01 270);
+  --primary: oklch(0.65 0.28 285);
+  --primary-foreground: oklch(0.12 0.01 285);
+  --secondary: oklch(0.22 0.02 285);
+  --secondary-foreground: oklch(0.88 0.01 270);
+  --muted: oklch(0.20 0.015 285);
+  --muted-foreground: oklch(0.58 0.02 270);
+  --accent: oklch(0.28 0.06 285);
+  --accent-foreground: oklch(0.92 0.01 270);
+  --destructive: oklch(0.62 0.24 15);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.25 0.02 285);
+  --input: oklch(0.25 0.02 285);
+  --ring: oklch(0.65 0.28 285);
+  
+  /* Chart Tokens */
+  --chart-1: oklch(0.65 0.28 285);
+  --chart-2: oklch(0.68 0.22 150);
+  --chart-3: oklch(0.72 0.20 45);
+  --chart-4: oklch(0.62 0.24 15);
+  --chart-5: oklch(0.68 0.18 220);
+  
+  /* Sidebar Tokens */
+  --sidebar: oklch(0.14 0.015 285);
+  --sidebar-foreground: oklch(0.88 0.01 270);
+  --sidebar-primary: oklch(0.65 0.28 285);
+  --sidebar-primary-foreground: oklch(0.12 0.01 285);
+  --sidebar-accent: oklch(0.28 0.06 285);
+  --sidebar-accent-foreground: oklch(0.92 0.01 270);
+  --sidebar-border: oklch(0.25 0.02 285);
+  --sidebar-ring: oklch(0.65 0.28 285);
+}
+
+@theme inline {
+  /* Shadcn Core Mapping */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Charts Mapping */
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* Sidebar Mapping */
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Typography */
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  /* Radius */
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    @apply scroll-smooth antialiased;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans min-h-screen;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  code, pre {
+    @apply font-mono;
+  }
+
+  ::selection {
+    @apply bg-primary/20 text-primary;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/40;
+  }
+}
