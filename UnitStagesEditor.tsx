@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { adminInsert, adminDeleteByFilter, adminReplace } from '@/lib/adminWrite';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -317,7 +318,7 @@ function FileUploadZone({
 
 // ─── Material Card (expanded editor) ─────────────────────────────────────────
 function MaterialCard({
-  material, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast,
+  material, onUpdate, onDelete, onMoveUp, onMoveDown, isFirst, isLast, stageId,
 }: {
   material: UnitStageMaterial;
   onUpdate: (patch: Partial<UnitStageMaterial>) => void;
@@ -326,6 +327,7 @@ function MaterialCard({
   onMoveDown: () => void;
   isFirst: boolean;
   isLast: boolean;
+  stageId?: string;
 }) {
   const cfg = MATERIAL_TYPE_CONFIG[material.material_type];
   const ytThumb = material.external_url ? getYouTubeThumbnail(material.external_url) : null;
@@ -393,6 +395,20 @@ function MaterialCard({
           />
         </div>
 
+        {/* Instrucciones — justo después del título, para todos los tipos */}
+        {material.material_type !== 'text' && (
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
+              Instrucciones <span className="font-normal normal-case text-muted-foreground/70">(opcional — el estudiante las verá antes del recurso)</span>
+            </label>
+            <RichTextEditor
+              value={material.description || ''}
+              onChange={v => onUpdate({ description: v })}
+              placeholder="Ej: Revisa el documento y toma nota de los verbos irregulares. Luego responde el quiz."
+            />
+          </div>
+        )}
+
         {/* Archivo / URL / Texto */}
         {cfg.isFile && (
           <div>
@@ -451,21 +467,32 @@ function MaterialCard({
           </div>
         )}
 
-        {/* Texto enriquecido */}
-        <div>
-          <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
-            {material.material_type === 'text' ? 'Contenido del texto' : 'Descripción / Notas (opcional)'}
-          </label>
-          <RichTextEditor
-            value={material.description || ''}
-            onChange={v => onUpdate({ description: v })}
-            placeholder={
-              material.material_type === 'text'
-                ? 'Escribe el contenido aquí. Puedes usar negrita, listas, colores...'
-                : 'Descripción o instrucciones para el estudiante (opcional)'
-            }
-          />
-        </div>
+        {/* Contenido de texto (solo para tipo text) */}
+        {material.material_type === 'text' && (
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5 block">
+              Contenido del texto
+            </label>
+            {stageId === 'vocabulary' && (
+              <div className="mb-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-700 flex items-start gap-2">
+                <span className="text-base">🔊</span>
+                <span>
+                  <strong>Audio automático:</strong> Cada línea tendrá botón de audio para el estudiante.<br />
+                  Formato recomendado: <code className="bg-blue-100 px-1 rounded">mother - madre</code> o solo <code className="bg-blue-100 px-1 rounded">mother</code>
+                </span>
+              </div>
+            )}
+            <RichTextEditor
+              value={material.description || ''}
+              onChange={v => onUpdate({ description: v })}
+              placeholder={
+                stageId === 'vocabulary'
+                  ? 'Ej: mother - madre\nfather - padre\nbrother - hermano'
+                  : 'Escribe el contenido aquí. Puedes usar negrita, listas, colores...'
+              }
+            />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -519,10 +546,10 @@ const QUIZ_TYPE_CONFIG: Record<QuizType, { label: string; emoji: string; desc: s
   match:            { label: 'Relacionar (Match)',      emoji: '🔗', desc: 'Conectar columna A con columna B' },
   organize:         { label: 'Organizar palabras',      emoji: '🔀', desc: 'Reordenar palabras o frases' },
   rewrite:          { label: 'Reescribir correctamente', emoji: '✍️', desc: 'Corregir una oración' },
-  fill_gap:         { label: 'Fill the Gap',            emoji: '✏️', desc: 'Completa el espacio en blanco' },
-  listen_select:    { label: 'Escucha y selecciona',    emoji: '🔊', desc: 'Escucha la palabra y elige la opción correcta' },
-  listen_write:     { label: 'Escucha y escribe',       emoji: '🎧', desc: 'Escucha la palabra y escríbela' },
-  image_choice:     { label: 'Imagen + opción múltiple', emoji: '🖼️', desc: 'Muestra una imagen y elige la opción correcta' },
+  fill_gap:          { label: 'Fill the Gap',             emoji: '✏️', desc: 'Completa el espacio en blanco' },
+  listen_select:     { label: 'Escucha y selecciona',     emoji: '🔊', desc: 'Escucha la palabra y elige la opción correcta' },
+  listen_write:      { label: 'Escucha y escribe',        emoji: '🎧', desc: 'Escucha la palabra y escríbela' },
+  image_choice:      { label: 'Imagen + opción múltiple', emoji: '🖼️', desc: 'Muestra una imagen y el estudiante elige la opción correcta' },
 };
 
 // Fallback seguro: nunca crashea con tipos desconocidos (ej: 'listen' legacy)
@@ -684,6 +711,7 @@ function QuizPreview({ questions, onClose }: { questions: QuizQuestion[]; onClos
               {q.question && <p className="font-bold text-base leading-snug">{q.question}</p>}
               {q.imageUrl && (
                 <>
+                  {/* Lightbox modal */}
                   {lightboxOpen && (
                     <div
                       className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
@@ -717,7 +745,7 @@ function QuizPreview({ questions, onClose }: { questions: QuizQuestion[]; onClos
             <p className="font-bold text-base leading-snug">{q.question}</p>
           )}
 
-          {/* Options: multiple_choice / multiple_select / true_false / listen / image_choice */}
+          {/* Options: multiple_choice / multiple_select / true_false / listen_select / image_choice */}
           {(q.type === 'multiple_choice' || q.type === 'multiple_select' || q.type === 'true_false' || q.type === 'listen_select' || q.type === 'image_choice') && (
             <div className="space-y-2">
               {q.options.map(opt => {
@@ -801,47 +829,67 @@ function QuizPreview({ questions, onClose }: { questions: QuizQuestion[]; onClos
 
           {/* Fill the Gap */}
           {isFillGap && (() => {
+            // Render sentence with blank: split by "___"
             const parts = q.question.split('___');
             return (
               <div className="space-y-3">
                 <div className="bg-amber-50 border-2 border-amber-200 rounded-xl px-4 py-4 text-sm leading-relaxed">
                   {parts.map((part, i) => (
-                    <span key={i}>{part}{i < parts.length - 1 && (
-                      <span className="inline-block mx-1">
-                        <input value={inputVal} onChange={e => setInputVal(e.target.value)} disabled={submitted}
-                          placeholder="______"
-                          className={`border-b-2 border-dashed px-2 py-0.5 text-sm font-semibold bg-transparent focus:outline-none w-28 text-center ${
-                            submitted ? answers[answers.length-1]?.correct ? 'border-green-500 text-green-700' : 'border-red-400 text-red-600' : 'border-amber-500'
-                          }`} />
-                      </span>
-                    )}
+                    <span key={i}>
+                      {part}
+                      {i < parts.length - 1 && (
+                        <span className="inline-block mx-1">
+                          <input
+                            value={inputVal}
+                            onChange={e => setInputVal(e.target.value)}
+                            disabled={submitted}
+                            placeholder="______"
+                            className={`border-b-2 border-dashed px-2 py-0.5 text-sm font-semibold bg-transparent focus:outline-none w-28 text-center transition-colors ${
+                              submitted
+                                ? answers[answers.length - 1]?.correct
+                                  ? 'border-green-500 text-green-700'
+                                  : 'border-red-400 text-red-600'
+                                : 'border-amber-500 focus:border-primary'
+                            }`}
+                          />
+                        </span>
+                      )}
                     </span>
                   ))}
                 </div>
                 {submitted && (
                   <div className={`rounded-xl px-4 py-2.5 text-sm font-medium ${
-                    answers[answers.length-1]?.correct ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                    answers[answers.length - 1]?.correct
+                      ? 'bg-green-50 text-green-700 border border-green-200'
+                      : 'bg-red-50 text-red-700 border border-red-200'
                   }`}>
-                    {answers[answers.length-1]?.correct ? '✅ ¡Correcto!' : `❌ La respuesta correcta es: "${q.correctAnswer}"`}
+                    {answers[answers.length - 1]?.correct
+                      ? '✅ ¡Correcto!'
+                      : `❌ La respuesta correcta es: "${q.correctAnswer}"`
+                    }
                   </div>
                 )}
               </div>
             );
           })()}
 
-          {/* Listen Write: campo para escribir */}
+          {/* Listen Write: campo para escribir la respuesta */}
           {isListenWrite && (
             <div className="space-y-3">
               <input value={inputVal} onChange={e => setInputVal(e.target.value)} disabled={submitted}
                 placeholder="Escribe lo que escuchaste..."
                 className={`w-full border-2 rounded-xl px-4 py-3 text-sm focus:outline-none transition-colors ${
-                  submitted ? answers[answers.length-1]?.correct ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50' : 'border-border focus:border-primary'
+                  submitted
+                    ? answers[answers.length - 1]?.correct ? 'border-green-400 bg-green-50' : 'border-red-400 bg-red-50'
+                    : 'border-border focus:border-primary'
                 }`} />
               {submitted && (
                 <div className={`rounded-xl px-4 py-2.5 text-sm font-medium ${
-                  answers[answers.length-1]?.correct ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                  answers[answers.length - 1]?.correct
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-red-50 text-red-700 border border-red-200'
                 }`}>
-                  {answers[answers.length-1]?.correct ? '✅ ¡Correcto!' : `❌ La respuesta correcta es: "${q.question}"`}
+                  {answers[answers.length - 1]?.correct ? '✅ ¡Correcto!' : `❌ La respuesta correcta es: "${q.question}"`}
                 </div>
               )}
             </div>
@@ -901,6 +949,10 @@ function QuizEditor({ unitId, stage }: { unitId: string; stage: Stage; stageLabe
   const [formAnswer, setFormAnswer] = useState('');
   const [formExplanation, setFormExplanation] = useState('');
   const [formPairs, setFormPairs] = useState([{left:'',right:''},{left:'',right:''},{left:'',right:''},{left:'',right:''}]);
+  const [formImageUrl, setFormImageUrl] = useState('');
+  const [imgUploading, setImgUploading] = useState(false);
+  const [imgUploadErr, setImgUploadErr] = useState<string | null>(null);
+  const imgInputRef = useRef<HTMLInputElement>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -923,36 +975,21 @@ function QuizEditor({ unitId, stage }: { unitId: string; stage: Stage; stageLabe
     return () => { cancelled = true; };
   }, [unitId, stage]);
 
-  // Save quiz via UPSERT (atomic, no race conditions)
+  // Save quiz via REPLACE (delete existing + insert new) — evita duplicate key
   const saveQuiz = async (qs: QuizQuestion[]) => {
     setSavingQ(true); setSaveErrQ(null);
-    console.log('[QuizEditor] saveQuiz START — questions:', qs.length, '| unitId:', unitId, '| stage:', stage);
     try {
-      // Check auth session first
-      const { data: { session }, error: sessionErr } = await supabase.auth.getSession();
-      if (sessionErr) throw new Error('Auth session error: ' + sessionErr.message);
-      if (!session) throw new Error('No active session — please log in again');
-      console.log('[QuizEditor] auth user:', session.user.email);
-
+      const quizFilters = { unit_id: unitId, stage };
       if (qs.length === 0) {
-        // Just delete if clearing
-        const delRes = await supabase
-          .from('unit_stage_quizzes')
-          .delete()
-          .eq('unit_id', unitId)
-          .eq('stage', stage);
-        console.log('[QuizEditor] delete (clear) result:', delRes.error ? JSON.stringify(delRes.error) : 'OK');
-        if (delRes.error) throw delRes.error;
+        // Borrar si no hay preguntas
+        await adminDeleteByFilter('unit_stage_quizzes', quizFilters);
       } else {
-        // UPSERT — insert or update on conflict (unit_id, stage)
-        const upsertRes = await supabase
-          .from('unit_stage_quizzes')
-          .upsert(
-            { unit_id: unitId, stage, questions: qs, updated_at: new Date().toISOString() },
-            { onConflict: 'unit_id,stage' }
-          );
-        console.log('[QuizEditor] upsert result:', upsertRes.error ? JSON.stringify(upsertRes.error) : 'OK');
-        if (upsertRes.error) throw upsertRes.error;
+        // replace = DELETE donde unit_id+stage coincidan, luego INSERT
+        await adminReplace(
+          'unit_stage_quizzes',
+          quizFilters,
+          { unit_id: unitId, stage, questions: qs, updated_at: new Date().toISOString() }
+        );
       }
 
       console.log('[QuizEditor] saveQuiz SUCCESS ✅');
@@ -975,6 +1012,8 @@ function QuizEditor({ unitId, stage }: { unitId: string; stage: Stage; stageLabe
     setFormQuestion(''); setFormOptions(['','','','']); setFormCorrect([0]);
     setFormAnswer(''); setFormExplanation('');
     setFormPairs([{left:'',right:''},{left:'',right:''},{left:'',right:''},{left:'',right:''}]);
+    setFormImageUrl('');
+    setImgUploadErr(null);
     setFormError(null); setEditingId(null);
   };
 
@@ -985,9 +1024,10 @@ function QuizEditor({ unitId, stage }: { unitId: string; stage: Stage; stageLabe
     setFormType(q.type);
     setFormQuestion(q.question);
     setFormExplanation(q.explanation ?? '');
+    setFormImageUrl(q.imageUrl ?? '');
     if (q.type === 'match') {
       setFormPairs(q.options.map(o => ({ left: o.text, right: o.correctAnswer ?? '' })));
-    } else if (q.type === 'organize' || q.type === 'rewrite') {
+    } else if (q.type === 'organize' || q.type === 'rewrite' || q.type === 'fill_gap') {
       setFormOptions([q.options[0]?.text ?? '', '', '', '']);
       setFormAnswer(q.correctAnswer ?? '');
     } else {
@@ -1016,6 +1056,41 @@ function QuizEditor({ unitId, stage }: { unitId: string; stage: Stage; stageLabe
       newQ = { id, type: formType, question: formQuestion,
         options: [{ id: `opt-${id}-0`, text: formOptions[0], isCorrect: true }],
         correctAnswer: formAnswer, explanation: formExplanation };
+    } else if (formType === 'fill_gap') {
+      if (!formQuestion.includes('___')) { setFormError('La oración debe contener ___ donde va el espacio en blanco.'); return; }
+      if (!formAnswer.trim()) { setFormError('Escribe la palabra correcta que va en el espacio.'); return; }
+      newQ = { id, type: 'fill_gap', question: formQuestion,
+        options: [],
+        correctAnswer: formAnswer, explanation: formExplanation };
+    } else if (formType === 'listen_select') {
+      if (!formQuestion.trim()) { setFormError('Escribe la palabra o frase que deben escuchar.'); return; }
+      const opts = formOptions.filter(o => o.trim());
+      if (opts.length < 2) { setFormError('Agrega al menos 2 opciones de respuesta.'); return; }
+      if (formCorrect.length === 0) { setFormError('Marca la opción correcta.'); return; }
+      newQ = { id, type: 'listen_select', question: formQuestion,
+        options: opts.map((text, oi) => ({ id: `opt-${id}-${oi}`, text, isCorrect: formCorrect.includes(oi) })),
+        explanation: formExplanation };
+    } else if (formType === 'listen_write') {
+      if (!formQuestion.trim()) { setFormError('Escribe la palabra o frase que deben escuchar y escribir.'); return; }
+      newQ = { id, type: 'listen_write', question: formQuestion,
+        options: [],
+        explanation: formExplanation };
+    } else if (formType === 'image_choice') {
+      if (!formImageUrl.trim()) { setFormError('Sube una imagen para continuar.'); return; }
+      const opts = formOptions.filter(o => o.trim());
+      if (opts.length < 2) { setFormError('Agrega al menos 2 opciones.'); return; }
+      if (formCorrect.length === 0) { setFormError('Marca la opción correcta.'); return; }
+      newQ = { id, type: 'image_choice', question: formQuestion,
+        imageUrl: formImageUrl.trim(),
+        options: opts.map((text, oi) => ({ id: `opt-${id}-${oi}`, text, isCorrect: formCorrect.includes(oi) })),
+        explanation: formExplanation };
+    } else if (formType === 'true_false') {
+      // Opciones fijas: no depende de formOptions
+      if (formCorrect.length === 0) { setFormError('Selecciona la respuesta correcta (Verdadero o Falso).'); return; }
+      const tfOptions = ['Verdadero', 'Falso'];
+      newQ = { id, type: 'true_false', question: formQuestion,
+        options: tfOptions.map((text, oi) => ({ id: `opt-${id}-${oi}`, text, isCorrect: formCorrect.includes(oi) })),
+        explanation: formExplanation };
     } else {
       const opts = formOptions.filter(o => o.trim());
       if (opts.length < 2) { setFormError('Agrega al menos 2 opciones.'); return; }
@@ -1091,13 +1166,50 @@ function QuizEditor({ unitId, stage }: { unitId: string; stage: Stage; stageLabe
 
           {/* Pregunta */}
           <div>
-            <label className="text-xs font-semibold text-violet-700 mb-1 block">Pregunta *</label>
+            <label className="text-xs font-semibold text-violet-700 mb-1 block">
+              {formType === 'fill_gap' ? 'Oración con espacio en blanco *'
+                : (formType === 'listen_select' || formType === 'listen_write') ? '🔊 Palabra / frase a escuchar *'
+                : 'Pregunta *'}
+            </label>
+            {formType === 'listen_select' && (
+              <div className="mb-2 px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-xs text-blue-700">
+                🔊 El estudiante escuchará esta palabra y elegirá la opción correcta de las opciones de abajo.
+              </div>
+            )}
+            {formType === 'listen_write' && (
+              <div className="mb-2 px-3 py-2 rounded-lg bg-teal-50 border border-teal-200 text-xs text-teal-700">
+                🎧 El estudiante escuchará esta palabra y deberá escribirla correctamente.
+              </div>
+            )}
             <Input value={formQuestion} onChange={e => setFormQuestion(e.target.value)}
-              placeholder="Escribe la pregunta aquí..." className="text-sm border-violet-200 bg-white" />
+              placeholder={
+                formType === 'fill_gap' ? 'Ej: She ___ to school every day.'
+                : (formType === 'listen_select' || formType === 'listen_write') ? 'Ej: comfortable'
+                : 'Escribe la pregunta aquí...'
+              }
+              className="text-sm border-violet-200 bg-white" />
+            {(formType === 'listen_select' || formType === 'listen_write') && formQuestion.trim() && (
+              <button type="button" onClick={() => {
+                if (!('speechSynthesis' in window)) return;
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(formQuestion);
+                u.lang = 'en-US'; u.rate = 0.85;
+                const trySpeak = () => {
+                  const vs = window.speechSynthesis.getVoices();
+                  const v = vs.find(x => x.lang === 'en-US') || vs.find(x => x.lang.startsWith('en'));
+                  if (v) u.voice = v;
+                  window.speechSynthesis.speak(u);
+                };
+                if (window.speechSynthesis.getVoices().length > 0) trySpeak();
+                else { window.speechSynthesis.onvoiceschanged = () => { trySpeak(); window.speechSynthesis.onvoiceschanged = null; }; }
+              }} className="mt-1.5 flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-800 font-medium">
+                🔊 Previsualizar audio
+              </button>
+            )}
           </div>
 
           {/* Opciones según tipo */}
-          {(formType === 'multiple_choice' || formType === 'multiple_select' || formType === 'true_false') && (
+          {(formType === 'multiple_choice' || formType === 'multiple_select' || formType === 'true_false' || formType === 'listen_select' || formType === 'image_choice') && (
             <div className="space-y-2">
               <label className="text-xs font-semibold text-violet-700 block">
                 Opciones — {formType === 'multiple_select' ? 'marca todas las correctas' : 'marca la correcta'}
@@ -1153,9 +1265,117 @@ function QuizEditor({ unitId, stage }: { unitId: string; stage: Stage; stageLabe
               <div>
                 <label className="text-xs font-semibold text-violet-700 mb-1 block">Respuesta correcta</label>
                 <Input value={formAnswer} onChange={e => setFormAnswer(e.target.value)}
-                  placeholder={formType === 'organize' ? 'Ej: I drink coffee every morning' : 'Ej: She doesn\'t like coffee'}
+                  placeholder={formType === 'organize' ? 'Ej: I drink coffee every morning' : "Ej: She doesn't like coffee"}
                   className="text-xs border-violet-200 bg-white" />
               </div>
+            </div>
+          )}
+
+          {formType === 'fill_gap' && (
+            <div className="space-y-2">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <p className="text-xs text-amber-800 font-semibold mb-1">📌 Cómo usar Fill the Gap:</p>
+                <p className="text-xs text-amber-700">Escribe la oración en el campo "Pregunta" usando <code className="bg-amber-100 px-1 rounded">___</code> donde va el espacio en blanco.</p>
+                <p className="text-xs text-amber-600 mt-1">Ej: <em>She ___ to school every day.</em></p>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-violet-700 mb-1 block">
+                  Palabra / respuesta correcta *
+                </label>
+                <Input value={formAnswer} onChange={e => setFormAnswer(e.target.value)}
+                  placeholder="Ej: goes"
+                  className="text-xs border-violet-200 bg-white" />
+              </div>
+              {formQuestion.includes('___') && (
+                <div className="bg-white border border-violet-200 rounded-xl p-3">
+                  <p className="text-xs text-violet-600 font-semibold mb-1">👁️ Vista previa:</p>
+                  <p className="text-sm">
+                    {formQuestion.split('___').map((part, i, arr) => (
+                      <span key={i}>
+                        {part}
+                        {i < arr.length - 1 && (
+                          <span className="inline-block border-b-2 border-dashed border-amber-500 mx-1 px-3 font-semibold text-amber-600">
+                            {formAnswer || '______'}
+                          </span>
+                        )}
+                      </span>
+                    ))}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Imagen — solo para image_choice */}
+          {formType === 'image_choice' && (
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-violet-700 mb-1 block">🖼️ Imagen de la pregunta *</label>
+
+              {/* Upload area */}
+              {!formImageUrl ? (
+                <div
+                  onClick={() => imgInputRef.current?.click()}
+                  className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed cursor-pointer transition-all py-6 ${
+                    imgUploading
+                      ? 'border-violet-300 bg-violet-50 pointer-events-none'
+                      : 'border-violet-300 bg-violet-50/40 hover:bg-violet-50 hover:border-violet-500'
+                  }`}
+                >
+                  {imgUploading ? (
+                    <>
+                      <div className="w-7 h-7 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                      <p className="text-xs text-violet-600 font-medium">Subiendo imagen...</p>
+                    </>
+                  ) : (
+                    <>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-xs font-semibold text-violet-700">Haz clic para subir imagen</p>
+                      <p className="text-[10px] text-violet-400">PNG, JPG, GIF, WEBP · máx. 10 MB</p>
+                    </>
+                  )}
+                  <input
+                    ref={imgInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async e => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 10 * 1024 * 1024) { setImgUploadErr('Máximo 10 MB'); return; }
+                      setImgUploading(true); setImgUploadErr(null);
+                      try {
+                        const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                        const path = `quiz-images/${Date.now()}_${safe}`;
+                        const { data, error } = await supabase.storage
+                          .from('unit-media')
+                          .upload(path, file, { upsert: true, cacheControl: '3600' });
+                        if (error) { setImgUploadErr(`Error: ${error.message}`); return; }
+                        const { data: pu } = supabase.storage.from('unit-media').getPublicUrl(data.path);
+                        setFormImageUrl(pu.publicUrl);
+                      } catch (ex) {
+                        setImgUploadErr(ex instanceof Error ? ex.message : 'Error al subir');
+                      } finally {
+                        setImgUploading(false);
+                        e.target.value = '';
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="relative rounded-xl overflow-hidden border-2 border-violet-300 bg-white">
+                  <img src={formImageUrl} alt="Vista previa" className="max-h-52 w-full object-contain p-2" />
+                  <button
+                    type="button"
+                    onClick={() => setFormImageUrl('')}
+                    className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow hover:bg-red-600 text-xs font-bold"
+                    title="Eliminar imagen"
+                  >✕</button>
+                </div>
+              )}
+
+              {imgUploadErr && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-1.5">{imgUploadErr}</p>}
             </div>
           )}
 
@@ -1342,6 +1562,7 @@ function StagePanel({
                   onMoveDown={() => moveMaterial(mat.id, 'down')}
                   isFirst={idx === 0}
                   isLast={idx === materials.length - 1}
+                  stageId={stage.id}
                 />
               ))}
               {showPicker && <AddMaterialPicker onAdd={addMaterial} />}
@@ -1417,9 +1638,7 @@ export function UnitStagesEditor({ unitId, unitTitle, onClose }: UnitStagesEdito
   const save = async () => {
     setSaving(true); setSaveError(null);
     try {
-      const { error: delErr } = await supabase
-        .from('unit_stage_materials').delete().eq('unit_id', unitId);
-      if (delErr) throw delErr;
+      await adminDeleteByFilter('unit_stage_materials', { unit_id: unitId });
       const allMaterials: Omit<UnitStageMaterial, 'id' | 'created_at' | 'updated_at'>[] = [];
       STAGES.forEach(({ id: stage }) => {
         materialsRef.current[stage].forEach((m, idx) => {
@@ -1435,8 +1654,7 @@ export function UnitStagesEditor({ unitId, unitTitle, onClose }: UnitStagesEdito
         });
       });
       if (allMaterials.length > 0) {
-        const { error: insErr } = await supabase.from('unit_stage_materials').insert(allMaterials);
-        if (insErr) throw insErr;
+        await adminInsert('unit_stage_materials', allMaterials as unknown as Record<string, unknown>);
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);

@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, NavLink, Navigate } from 'react-router-dom';
-import { LayoutDashboard, BookOpen, CreditCard, Wallet, Settings, Menu, X, LogOut, Users, DollarSign, Globe } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Menu, X, LogOut, Users, DollarSign } from 'lucide-react';
 import { useAdmin, useAdminAuth } from '@/hooks/useAdmin';
 import { ADMIN_ROUTES } from '@/lib/admin';
 import { ROUTE_PATHS } from '@/lib/index';
@@ -17,13 +17,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const { logout } = useAdminAuth();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+
+  // Safety timeout: si loading tarda más de 5s, forzar redirect al login
+  useEffect(() => {
+    if (!loading) return;
+    const t = setTimeout(() => setTimedOut(true), 5000);
+    return () => clearTimeout(t);
+  }, [loading]);
 
   const handleLogout = async () => {
     await logout();
     navigate(ROUTE_PATHS.HOME, { replace: true });
   };
 
-  if (loading) {
+  if (loading && !timedOut) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
         <img src={IMAGES.BLANG_LOGO} alt="BLANG" className="h-12 opacity-60" />
@@ -33,7 +41,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
-  if (!isAdmin) {
+  if (!isAdmin || timedOut) {
     return <Navigate to={ADMIN_ROUTES.LOGIN} replace />;
   }
 
@@ -42,10 +50,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     { to: ADMIN_ROUTES.STUDENTS, icon: Users, label: 'Estudiantes' },
     { to: ADMIN_ROUTES.COURSES, icon: BookOpen, label: 'Cursos' },
     { to: ADMIN_ROUTES.REVENUE, icon: DollarSign, label: 'Ingresos' },
-    { to: ADMIN_ROUTES.PRICING, icon: CreditCard, label: 'Precios' },
-    { to: ADMIN_ROUTES.PAYMENTS, icon: Wallet, label: 'Pagos' },
-    { to: ADMIN_ROUTES.SITE_EDITOR, icon: Globe, label: 'Editor del Sitio' },
-    { to: ADMIN_ROUTES.SETTINGS, icon: Settings, label: 'Configuración' },
   ];
 
   return (

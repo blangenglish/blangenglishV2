@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import {
   X, Film, ExternalLink, Link2,
   Loader2, BookOpen, Lock, CheckCircle2,
-  ChevronRight, ChevronLeft, Trophy, Circle, Volume2,
+  ChevronRight, ChevronLeft, Trophy, Circle,
 } from 'lucide-react';
 import { STAGES, MATERIAL_TYPE_CONFIG, type Stage, type UnitStageMaterial } from '@/lib/stages';
 
@@ -35,244 +35,23 @@ interface StageProgress {
   quiz_passed: boolean;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-function stripHtml(html: string): string {
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"');
-}
-
-// ─── Vocabulary TTS — usa <audio> con Google TTS (no congela el navegador) ─────
-function VocabularyTTSContent({ text }: { text: string }) {
-  const [playingIdx, setPlayingIdx] = useState<number | null>(null);
-
-  const plainText = text.includes('<') ? stripHtml(text) : text;
-  const lines = plainText.split('\n').map(l => l.trim()).filter(Boolean);
-
-  const parseLine = (line: string) => {
-    const m = line.match(/^(.+?)\s*[-:|]\s*(.+)$/);
-    if (m) return { english: m[1].trim(), translation: m[2].trim() };
-    return { english: line, translation: null };
-  };
-
-  const handlePlay = (english: string, idx: number) => {
-    if (!('speechSynthesis' in window)) return;
-    setPlayingIdx(idx);
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(english);
-    utter.lang = 'en-US';
-    utter.rate = 0.85;
-    utter.pitch = 1.0;
-    utter.onend = () => setPlayingIdx(null);
-    utter.onerror = () => setPlayingIdx(null);
-    // Usar voz en-US si está disponible
-    const voices = window.speechSynthesis.getVoices();
-    const usVoice = voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang.startsWith('en'));
-    if (usVoice) utter.voice = usVoice;
-    window.speechSynthesis.speak(utter);
-  };
-
-  return (
-    <div className="space-y-2">
-      {lines.map((line, i) => {
-        const { english, translation } = parseLine(line);
-        const isPlaying = playingIdx === i;
-        return (
-          <div
-            key={i}
-            className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/10 hover:bg-blue-50/40 transition-colors group"
-          >
-            <button
-              onClick={() => handlePlay(english, i)}
-              title={`Escuchar: ${english}`}
-              disabled={isPlaying}
-              className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all shadow-sm border ${
-                isPlaying
-                  ? 'bg-blue-500 border-blue-400 text-white scale-110 shadow-blue-200 cursor-default'
-                  : 'bg-white border-blue-200 text-blue-500 hover:bg-blue-500 hover:text-white hover:border-blue-500 group-hover:scale-105'
-              }`}
-            >
-              <Volume2 className={`w-4 h-4 ${isPlaying ? 'animate-pulse' : ''}`} />
-            </button>
-            <span className="font-semibold text-base text-foreground flex-1">{english}</span>
-            {translation && (
-              <span className="text-sm text-muted-foreground italic border-l border-border pl-3">{translation}</span>
-            )}
-          </div>
-        );
-      })}
-      {lines.length === 0 && (
-        <p className="text-sm text-muted-foreground italic p-3">Sin contenido aún</p>
-      )}
-    </div>
-  );
-}
-
-// ─── Reading with tap-to-translate ─────────────────────────────────────────
-function ReadingWithTranslation({ html }: { html: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [tooltip, setTooltip] = useState<{
-    text: string; translation: string | null; loading: boolean;
-    x: number; y: number;
-  } | null>(null);
-  const tooltipRef = useRef<HTMLDivElement>(null);
-
-  const translate = async (text: string) => {
-    try {
-      const res = await fetch(
-        `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|es`
-      );
-      const data = await res.json();
-      const t = data?.responseData?.translatedText;
-      if (t && t.toLowerCase() !== text.toLowerCase()) return t;
-      return null;
-    } catch {
-      return null;
-    }
-  };
-
-  const handleMouseUp = async (e: React.MouseEvent) => {
-    const sel = window.getSelection();
-    const selected = sel?.toString().trim();
-    if (!selected || selected.length < 1 || selected.length > 200) {
-      setTooltip(null);
-      return;
-    }
-    // Posición del tooltip
-    const rect = (e.target as HTMLElement).closest('[data-reading]')?.getBoundingClientRect();
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
-    const x = Math.min(e.clientX - containerRect.left, containerRect.width - 220);
-    const y = e.clientY - containerRect.top - 10;
-    setTooltip({ text: selected, translation: null, loading: true, x: Math.max(0, x), y });
-    const result = await translate(selected);
-    setTooltip(prev => prev?.text === selected ? { ...prev, translation: result, loading: false } : prev);
-  };
-
-  // Cerrar tooltip al hacer clic fuera
-  useEffect(() => {
-    const close = (e: MouseEvent) => {
-      if (tooltipRef.current && !tooltipRef.current.contains(e.target as Node)) {
-        setTooltip(null);
-      }
-    };
-    document.addEventListener('mousedown', close);
-    document.addEventListener('touchstart', close);
-    return () => {
-      document.removeEventListener('mousedown', close);
-      document.removeEventListener('touchstart', close);
-    };
-  }, []);
-
-  return (
-    <div ref={containerRef} className="relative">
-      <div
-        data-reading="true"
-        className="p-4 rounded-lg bg-muted/20 border border-border prose prose-sm max-w-none text-sm leading-relaxed select-text cursor-text"
-        dangerouslySetInnerHTML={{ __html: html }}
-        onMouseUp={handleMouseUp}
-        onTouchEnd={handleMouseUp as unknown as React.TouchEventHandler}
-      />
-      {/* Hint */}
-      <p className="text-[11px] text-muted-foreground text-center mt-1.5 italic">
-        💡 Selecciona una palabra o frase para ver su traducción
-      </p>
-      {/* Tooltip */}
-      {tooltip && (
-        <div
-          ref={tooltipRef}
-          className="absolute z-50 bg-gray-900 text-white rounded-xl shadow-2xl px-4 py-3 min-w-[160px] max-w-[260px] pointer-events-auto"
-          style={{ left: tooltip.x, top: tooltip.y, transform: 'translateY(-100%)' }}
-        >
-          <p className="text-xs font-bold text-blue-300 mb-0.5 truncate">🔤 {tooltip.text}</p>
-          {tooltip.loading ? (
-            <div className="flex items-center gap-2 text-xs text-gray-300">
-              <svg className="animate-spin w-3 h-3" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-              </svg>
-              Traduciendo...
-            </div>
-          ) : tooltip.translation ? (
-            <p className="text-sm font-semibold text-yellow-300">{tooltip.translation}</p>
-          ) : (
-            <p className="text-xs text-gray-400 italic">No encontrado</p>
-          )}
-          {/* Arrow */}
-          <div className="absolute left-4 bottom-0 translate-y-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-gray-900" />
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Material renderer ────────────────────────────────────────────────────────
-function ImageLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
-  return (
-    <div
-      className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div className="relative max-w-full max-h-full" onClick={e => e.stopPropagation()}>
-        <button
-          onClick={onClose}
-          className="absolute -top-3 -right-3 z-10 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100"
-        >
-          <X className="w-4 h-4 text-gray-800" />
-        </button>
-        <img
-          src={src}
-          alt={alt}
-          className="max-w-[90vw] max-h-[85vh] rounded-xl object-contain shadow-2xl"
-        />
-        <p className="text-center text-white/60 text-xs mt-2">Toca fuera para cerrar</p>
-      </div>
-    </div>
-  );
-}
-
-function MaterialItem({ mat, stage }: { mat: UnitStageMaterial; stage?: string }) {
+function MaterialItem({ mat }: { mat: UnitStageMaterial }) {
   const [playing, setPlaying] = useState(false);
-  const [lightbox, setLightbox] = useState(false);
 
   return (
-    <>
-    {lightbox && mat.file_url && (
-      <ImageLightbox src={mat.file_url} alt={mat.title} onClose={() => setLightbox(false)} />
-    )}
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       {/* Title bar */}
       <div className="flex items-center gap-2 px-4 py-2.5 bg-muted/20 border-b border-border/50">
         <span className="text-base">{MATERIAL_TYPE_CONFIG[mat.material_type].emoji}</span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold truncate">{mat.title}</p>
+          {mat.description && <p className="text-xs text-muted-foreground truncate">{mat.description}</p>}
         </div>
         <Badge variant="outline" className="text-[10px] shrink-0">
           {MATERIAL_TYPE_CONFIG[mat.material_type].label}
         </Badge>
       </div>
-
-      {/* Instrucciones — visible para el estudiante antes del recurso */}
-      {mat.material_type !== 'text' && mat.description && (
-        <div className="mx-3 mt-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 flex items-start gap-2">
-          <span className="text-base shrink-0 mt-0.5">📋</span>
-          <div>
-            <p className="text-xs font-bold text-amber-700 uppercase tracking-wide mb-1">Instrucciones</p>
-            <div
-              className="text-sm text-amber-900 leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: mat.description }}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Content */}
       <div className="p-3">
@@ -283,49 +62,14 @@ function MaterialItem({ mat, stage }: { mat: UnitStageMaterial; stage?: string }
           <video src={mat.file_url} controls className="w-full rounded-lg max-h-64 bg-black" />
         )}
         {mat.material_type === 'image' && mat.file_url && (
-          <div className="space-y-1.5">
-            <div
-              className="relative group cursor-zoom-in"
-              onClick={() => setLightbox(true)}
-            >
-              <img
-                src={mat.file_url}
-                alt={mat.title}
-                className="w-full rounded-lg object-contain max-h-96"
-              />
-              {/* Overlay hint */}
-              <div className="absolute inset-0 rounded-lg bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35M11 8v6M8 11h6"/>
-                  </svg>
-                  Ampliar imagen
-                </div>
-              </div>
-            </div>
-            <p className="text-[11px] text-muted-foreground text-center">Toca la imagen para ampliarla 🔍</p>
-          </div>
+          <img src={mat.file_url} alt={mat.title} className="w-full rounded-lg max-h-64 object-contain" />
         )}
         {mat.material_type === 'pdf' && mat.file_url && (
-          <div className="space-y-3">
-            {/* Preview card — el iframe falla en Supabase Storage por cabeceras CORS */}
-            <div
-              className="w-full rounded-xl border-2 border-dashed border-red-200 bg-red-50 flex flex-col items-center justify-center gap-3 py-8 cursor-pointer hover:bg-red-100 transition-colors group"
-              onClick={() => window.open(mat.file_url!, '_blank')}
-            >
-              <div className="w-16 h-16 bg-red-500 rounded-2xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-9 h-9 text-white" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 1.5L18.5 9H13V3.5zM8.5 17.5h-1v-5h1.8c1.1 0 1.7.6 1.7 1.5 0 1-.7 1.5-1.8 1.5H8.5v2zm0-2.8h.7c.5 0 .8-.2.8-.7s-.3-.7-.8-.7H8.5v1.4zm4.5 2.8h-1.6v-5H13c1.5 0 2.5.9 2.5 2.5S14.5 17.5 13 17.5zm-.6-1h.5c.9 0 1.5-.5 1.5-1.5S13.8 13.5 13 13.5h-.6v3zm5.1-4h-2.5v5h1v-1.8h1.4v-1H16v-1.2h1.5v-1z"/>
-                </svg>
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-bold text-red-700">{mat.title}</p>
-                <p className="text-xs text-red-500 mt-0.5">Toca para abrir el PDF</p>
-              </div>
-              <div className="flex items-center gap-1.5 bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-full shadow group-hover:bg-red-600 transition-colors">
-                <ExternalLink className="w-3.5 h-3.5" /> Abrir PDF
-              </div>
-            </div>
+          <div className="space-y-2">
+            <iframe src={`${mat.file_url}#toolbar=1`} className="w-full h-64 rounded-lg border border-border" title={mat.title} />
+            <Button variant="outline" size="sm" className="w-full gap-2" onClick={() => window.open(mat.file_url!, '_blank')}>
+              <ExternalLink className="h-3.5 w-3.5" /> Abrir PDF completo
+            </Button>
           </div>
         )}
         {(mat.material_type === 'word' || mat.material_type === 'ppt') && mat.file_url && (
@@ -371,19 +115,12 @@ function MaterialItem({ mat, stage }: { mat: UnitStageMaterial; stage?: string }
           );
         })()}
         {mat.material_type === 'text' && mat.description && (
-          stage === 'vocabulary'
-            ? <VocabularyTTSContent text={mat.description} />
-            : stage === 'reading'
-              ? <ReadingWithTranslation html={mat.description} />
-              : (
-                <div className="p-3 rounded-lg bg-muted/20 border border-border prose prose-sm max-w-none text-sm leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: mat.description }}
-                />
-              )
+          <div className="p-3 rounded-lg bg-muted/20 border border-border">
+            <p className="text-sm whitespace-pre-wrap">{mat.description}</p>
+          </div>
         )}
       </div>
     </div>
-    </>
   );
 }
 
@@ -429,7 +166,6 @@ export function UnitViewer({ unitId, unitTitle, unitDescription, studentId, onCl
   const [currentStageIdx, setCurrentStageIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [markingDone, setMarkingDone] = useState(false);
-  const [forceAllDone, setForceAllDone] = useState(false);
 
   // Cargar materiales y progreso
   const loadData = useCallback(async () => {
@@ -483,7 +219,7 @@ export function UnitViewer({ unitId, unitTitle, unitDescription, studentId, onCl
   // ¿Cuántas partes con contenido están completadas?
   const completedCount = stagesWithContent.filter(s => progress[s.id]?.completed).length;
   const progressPct = stagesWithContent.length > 0 ? Math.round((completedCount / stagesWithContent.length) * 100) : 0;
-  const allDone = forceAllDone || (stagesWithContent.length > 0 && completedCount === stagesWithContent.length);
+  const allDone = stagesWithContent.length > 0 && completedCount === stagesWithContent.length;
 
   // Índice local de la parte actual dentro de las que tienen contenido
   const localIdx = stagesWithContent.findIndex(s => s.id === currentStage?.id);
@@ -506,87 +242,29 @@ export function UnitViewer({ unitId, unitTitle, unitDescription, studentId, onCl
   const markCompleted = async () => {
     if (!currentStage || markingDone) return;
     setMarkingDone(true);
-
-    const stageSnapshot = currentStage;        // capturar antes del await
-    const localIdxSnapshot = localIdx;
-    const stagesSnapshot = [...stagesWithContent];
-
-    try {
-      const row = {
-        student_id: studentId,
-        unit_id: unitId,
-        stage: stageSnapshot.id,
-        completed: true,
-        completed_at: new Date().toISOString(),
-      };
-
-      // Intentar upsert primero
-      let { error } = await supabase
-        .from('unit_progress')
-        .upsert(row, { onConflict: 'student_id,unit_id,stage' });
-
-      // Si falla upsert, intentar insert; si ya existe, intentar update
-      if (error) {
-        console.warn('[markCompleted] upsert error, trying insert:', error.message);
-        const ins = await supabase.from('unit_progress').insert(row);
-        if (ins.error) {
-          console.warn('[markCompleted] insert error, trying update:', ins.error.message);
-          const upd = await supabase
-            .from('unit_progress')
-            .update({ completed: true, completed_at: row.completed_at })
-            .eq('student_id', studentId)
-            .eq('unit_id', unitId)
-            .eq('stage', stageSnapshot.id);
-          if (upd.error) {
-            console.error('[markCompleted] all methods failed:', upd.error.message);
-          } else {
-            error = null;
-          }
-        } else {
-          error = null;
-        }
-      }
-
-      // Actualizar estado local SIN IMPORTAR si hubo error de DB
-      setProgress(prev => {
-        const updated = {
-          ...prev,
-          [stageSnapshot.id]: {
-            completed: true,
-            completed_at: row.completed_at,
-            quiz_passed: prev[stageSnapshot.id]?.quiz_passed ?? false,
-          },
-        };
-        // Verificar si con este update ya están todas completadas
-        const doneCount = stagesSnapshot.filter(s => updated[s.id]?.completed).length;
-        if (doneCount === stagesSnapshot.length) {
-          // Última parte completada → forzar pantalla de unidad completa
-          setTimeout(() => setForceAllDone(true), 400);
-        }
-        return updated;
-      });
-
-      if (error) {
-        console.warn('[markCompleted] DB save failed but advancing anyway:', error.message);
-      }
-
-      // Auto-avanzar si hay siguiente parte
-      if (localIdxSnapshot < stagesSnapshot.length - 1) {
+    const row = {
+      student_id: studentId,
+      unit_id: unitId,
+      stage: currentStage.id,
+      completed: true,
+      completed_at: new Date().toISOString(),
+    };
+    const { error } = await supabase.from('unit_progress')
+      .upsert(row, { onConflict: 'student_id,unit_id,stage' });
+    if (!error) {
+      setProgress(prev => ({
+        ...prev,
+        [currentStage.id]: { completed: true, completed_at: row.completed_at, quiz_passed: prev[currentStage.id]?.quiz_passed ?? false },
+      }));
+      // Auto-avanzar si hay siguiente
+      if (localIdx < stagesWithContent.length - 1) {
         setTimeout(() => {
-          const targetStage = stagesSnapshot[localIdxSnapshot + 1];
+          const targetStage = stagesWithContent[localIdx + 1];
           setCurrentStageIdx(STAGES.findIndex(s => s.id === targetStage.id));
-        }, 500);
+        }, 600);
       }
-    } catch (e) {
-      console.error('[markCompleted] unexpected error:', e);
-      // Avanzar de todos modos para no bloquear al estudiante
-      if (localIdxSnapshot < stagesWithContent.length - 1) {
-        const targetStage = stagesWithContent[localIdxSnapshot + 1];
-        setCurrentStageIdx(STAGES.findIndex(s => s.id === targetStage.id));
-      }
-    } finally {
-      setMarkingDone(false);
     }
+    setMarkingDone(false);
   };
 
   // ¿Puede avanzar a la siguiente parte?
@@ -735,24 +413,11 @@ export function UnitViewer({ unitId, unitTitle, unitDescription, studentId, onCl
 
             {/* Materiales */}
             <div className="space-y-3">
-              {currentMaterials.map(mat => <MaterialItem key={mat.id} mat={mat} stage={currentStage?.id} />)}
+              {currentMaterials.map(mat => <MaterialItem key={mat.id} mat={mat} />)}
             </div>
 
             {/* Bloque de acción inferior */}
             <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
-
-              {/* Botón ← Anterior — siempre visible si hay parte anterior */}
-              {localIdx > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full rounded-xl gap-2 text-muted-foreground hover:text-foreground border border-dashed border-border/60"
-                  onClick={goPrev}
-                >
-                  <ChevronLeft className="w-4 h-4" /> Regresar a parte anterior
-                </Button>
-              )}
-
               {!currentCompleted ? (
                 <>
                   {stageHasQuiz ? (
@@ -792,8 +457,11 @@ export function UnitViewer({ unitId, unitTitle, unitDescription, studentId, onCl
                   )}
                 </>
               ) : (
-                /* Ya completada → navegación adelante */
+                /* Ya completada → solo navegación */
                 <div className="flex items-center gap-3">
+                  <Button variant="outline" className="gap-2 rounded-xl" onClick={goPrev} disabled={localIdx === 0}>
+                    <ChevronLeft className="w-4 h-4" /> Anterior
+                  </Button>
                   {localIdx < stagesWithContent.length - 1 ? (
                     <Button className="flex-1 rounded-xl gap-2 font-bold" onClick={goNext}>
                       Siguiente parte <ChevronRight className="w-4 h-4" />
@@ -815,7 +483,6 @@ export function UnitViewer({ unitId, unitTitle, unitDescription, studentId, onCl
                   {stagesWithContent.map((s, i) => {
                     const isThisCurrent = s.id === currentStage?.id;
                     const isThisDone = !!progress[s.id]?.completed;
-                    // Puede navegar a: partes anteriores, la actual, o cualquier completada
                     const canClick = i <= localIdx || isThisDone;
                     return (
                       <button

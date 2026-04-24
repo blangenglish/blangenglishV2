@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { adminInsert, adminUpdate } from '@/lib/adminWrite'
+import { supabase } from '@/integrations/supabase/client'
 import { DBCourse } from '@/lib/admin'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -60,9 +60,18 @@ export function CourseForm({ course, onSave, onClose }: CourseFormProps) {
       }
 
       if (course) {
-        await adminUpdate('courses', courseData, course.id)
+        const { error: updateError } = await supabase
+          .from('courses')
+          .update(courseData)
+          .eq('id', course.id)
+
+        if (updateError) throw updateError
       } else {
-        await adminInsert('courses', { ...courseData, created_at: new Date().toISOString() })
+        const { error: insertError } = await supabase
+          .from('courses')
+          .insert([{ ...courseData, created_at: new Date().toISOString() }])
+
+        if (insertError) throw insertError
       }
 
       onSave()
