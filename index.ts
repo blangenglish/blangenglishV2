@@ -1,99 +1,117 @@
-export const ROUTE_PATHS = {
-  HOME: '/',
-  LESSONS: '/lecciones',
-  LIVE_CLASSES: '/clases-en-vivo',
-  PROGRESS: '/mi-progreso',
-  DASHBOARD: '/mi-cuenta',
-  PRICING: '/precios',
-  METHODOLOGY: '/metodologia',
-  FAQ: '/preguntas-frecuentes',
-  TERMS: '/terminos-de-servicio',
-  PRIVACY: '/politica-de-privacidad',
-  RESET_PASSWORD: '/reset-password',
-} as const;
+import type { Lesson, LiveClass, UserProgress } from '@/lib/index';
 
-export interface Feature {
-  id: string;
-  icon: string;
-  title: string;
-  description: string;
-  color: string;
-}
+export const LESSONS: Lesson[] = [
+  { id: '1', title: 'Saludos y presentaciones', level: 'Básico', duration: '15 min', topic: 'Speaking', completed: true, locked: false, emoji: '👋' },
+  { id: '2', title: 'Los artículos en inglés', level: 'Básico', duration: '20 min', topic: 'Gramática', completed: true, locked: false, emoji: '📖' },
+  { id: '3', title: 'Vocabulario: colores y números', level: 'Básico', duration: '10 min', topic: 'Vocabulario', completed: true, locked: false, emoji: '🎨' },
+  { id: '4', title: 'Present Simple', level: 'Básico', duration: '25 min', topic: 'Gramática', completed: false, locked: false, emoji: '⏰' },
+  { id: '5', title: 'Conversación cotidiana', level: 'Básico', duration: '20 min', topic: 'Speaking', completed: false, locked: false, emoji: '💬' },
+  { id: '6', title: 'Past Simple', level: 'Intermedio', duration: '30 min', topic: 'Gramática', completed: false, locked: false, emoji: '📅' },
+  { id: '7', title: 'Escritura de correos formales', level: 'Intermedio', duration: '35 min', topic: 'Writing', completed: false, locked: false, emoji: '✉️' },
+  { id: '8', title: 'Phrasal verbs básicos', level: 'Intermedio', duration: '25 min', topic: 'Vocabulario', completed: false, locked: false, emoji: '🔗' },
+  { id: '9', title: 'Debates y opiniones', level: 'Intermedio', duration: '40 min', topic: 'Speaking', completed: false, locked: true, emoji: '🗣️' },
+  { id: '10', title: 'Condicionales', level: 'Intermedio', duration: '30 min', topic: 'Gramática', completed: false, locked: true, emoji: '🔀' },
+  { id: '11', title: 'Inglés de negocios avanzado', level: 'Avanzado', duration: '45 min', topic: 'Speaking', completed: false, locked: true, emoji: '💼' },
+  { id: '12', title: 'Redacción académica', level: 'Avanzado', duration: '50 min', topic: 'Writing', completed: false, locked: true, emoji: '🎓' },
+];
 
-export interface PricingPlan {
-  id: string;
-  name: string;
-  price: number;
-  billingPeriod: string;
-  features: string[];
-  popular?: boolean;
-  cta: string;
-  emoji: string;
-  badge?: string;
-}
+export const LIVE_CLASSES: LiveClass[] = [
+  {
+    id: '1',
+    title: 'Speaking Club: Viajes y cultura',
+    teacher: 'Sarah Johnson',
+    teacherAvatar: '',
+    date: '2026-04-20',
+    time: '6:00 PM',
+    duration: '60 min',
+    level: 'Intermedio',
+    spots: 12,
+    spotsLeft: 4,
+    topic: 'Speaking',
+    emoji: '✈️',
+  },
+  {
+    id: '2',
+    title: 'Grammar Workshop: Past Perfect',
+    teacher: 'Michael Brown',
+    teacherAvatar: '',
+    date: '2026-04-21',
+    time: '8:00 PM',
+    duration: '45 min',
+    level: 'Básico',
+    spots: 15,
+    spotsLeft: 7,
+    topic: 'Gramática',
+    emoji: '📝',
+  },
+  {
+    id: '3',
+    title: 'Business English: Negociaciones',
+    teacher: 'Emily Davis',
+    teacherAvatar: '',
+    date: '2026-04-22',
+    time: '7:00 PM',
+    duration: '60 min',
+    level: 'Avanzado',
+    spots: 10,
+    spotsLeft: 2,
+    topic: 'Negocios',
+    emoji: '💼',
+  },
+  {
+    id: '4',
+    title: 'Pronunciation Masterclass',
+    teacher: 'James Wilson',
+    teacherAvatar: '',
+    date: '2026-04-23',
+    time: '5:00 PM',
+    duration: '45 min',
+    level: 'Básico',
+    spots: 20,
+    spotsLeft: 12,
+    topic: 'Pronunciación',
+    emoji: '🎤',
+  },
+  {
+    id: '5',
+    title: 'Vocabulario: Tecnología y futuro',
+    teacher: 'Sarah Johnson',
+    teacherAvatar: '',
+    date: '2026-04-24',
+    time: '6:30 PM',
+    duration: '50 min',
+    level: 'Intermedio',
+    spots: 15,
+    spotsLeft: 9,
+    topic: 'Vocabulario',
+    emoji: '🤖',
+  },
+];
 
-export interface Testimonial {
-  id: string;
-  name: string;
-  country: string;
-  flag: string;
-  rating: number;
-  quote: string;
-  avatar: string;
-  level: string;
-}
-
-export interface FAQItem {
-  id: string;
-  question: string;
-  answer: string;
-}
-
-export interface Lesson {
-  id: string;
-  title: string;
-  level: 'Básico' | 'Intermedio' | 'Avanzado';
-  duration: string;
-  topic: string;
-  completed: boolean;
-  locked: boolean;
-  emoji: string;
-}
-
-export interface LiveClass {
-  id: string;
-  title: string;
-  teacher: string;
-  teacherAvatar: string;
-  date: string;
-  time: string;
-  duration: string;
-  level: string;
-  spots: number;
-  spotsLeft: number;
-  topic: string;
-  emoji: string;
-}
-
-export interface UserProgress {
-  totalLessons: number;
-  completedLessons: number;
-  streak: number;
-  points: number;
-  level: string;
-  nextLevel: string;
-  weeklyGoal: number;
-  weeklyCompleted: number;
-  badges: Badge[];
-  weeklyActivity: { day: string; minutes: number }[];
-}
-
-export interface Badge {
-  id: string;
-  name: string;
-  emoji: string;
-  earned: boolean;
-  description: string;
-}
-
-export type AuthModal = 'login' | 'register' | null;
+export const USER_PROGRESS: UserProgress = {
+  totalLessons: 48,
+  completedLessons: 12,
+  streak: 7,
+  points: 1240,
+  level: 'A2',
+  nextLevel: 'B1',
+  weeklyGoal: 5,
+  weeklyCompleted: 3,
+  badges: [
+    { id: '1', name: 'Primera Lección', emoji: '🌟', earned: true, description: 'Completaste tu primera lección' },
+    { id: '2', name: 'Racha de 7 días', emoji: '🔥', earned: true, description: 'Estudiaste 7 días seguidos' },
+    { id: '3', name: 'Vocabulario Pro', emoji: '📖', earned: true, description: 'Aprendiste 100 palabras nuevas' },
+    { id: '4', name: 'Speaker Audaz', emoji: '🎤', earned: false, description: 'Participa en 5 clases en vivo' },
+    { id: '5', name: 'Maestro Gramático', emoji: '🏆', earned: false, description: 'Completa todas las lecciones de gramática' },
+    { id: '6', name: 'Políglota', emoji: '🌍', earned: false, description: 'Alcanza el nivel B2' },
+  ],
+  weeklyActivity: [
+    { day: 'Lun', minutes: 30 },
+    { day: 'Mar', minutes: 45 },
+    { day: 'Mié', minutes: 20 },
+    { day: 'Jue', minutes: 60 },
+    { day: 'Vie', minutes: 15 },
+    { day: 'Sáb', minutes: 0 },
+    { day: 'Dom', minutes: 40 },
+  ],
+};
