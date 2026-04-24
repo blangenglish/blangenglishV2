@@ -1,0 +1,1 @@
+ALTER TABLE payment_history ENABLE ROW LEVEL SECURITY;

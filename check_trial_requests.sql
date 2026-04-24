@@ -1,0 +1,1 @@
+SELECT id, student_name, student_email, request_type, status, created_at FROM trial_requests ORDER BY created_at DESC LIMIT 10;

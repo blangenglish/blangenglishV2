@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS student_update_own_profile ON student_profiles; CREATE POLICY student_update_own_profile ON student_profiles FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);

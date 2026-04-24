@@ -1,0 +1,1 @@
+SELECT name, installed_version FROM pg_available_extensions WHERE name = 'http';

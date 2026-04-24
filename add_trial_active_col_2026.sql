@@ -1,0 +1,1 @@
+ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS trial_active boolean DEFAULT false; ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS trial_start_date timestamptz; ALTER TABLE public.student_profiles ADD COLUMN IF NOT EXISTS trial_end_date timestamptz;

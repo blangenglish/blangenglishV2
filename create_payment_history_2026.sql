@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS payment_history (id uuid DEFAULT gen_random_uuid() PRIMARY KEY, student_id uuid REFERENCES auth.users(id) ON DELETE CASCADE, event_type text NOT NULL, amount_usd numeric DEFAULT 0, payment_method text DEFAULT 'none', notes text, created_by text, created_at timestamptz DEFAULT now());

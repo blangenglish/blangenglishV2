@@ -1,0 +1,1 @@
+ALTER TABLE student_profiles ADD COLUMN IF NOT EXISTS account_enabled boolean DEFAULT false;

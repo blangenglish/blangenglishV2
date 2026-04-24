@@ -1,0 +1,1 @@
+\n-- 1. Ver políticas RLS actuales en student_profiles\nSELECT schemaname, tablename, policyname, permissive, roles, cmd, qual\nFROM pg_policies \nWHERE tablename = 'student_profiles'\nORDER BY policyname;\n

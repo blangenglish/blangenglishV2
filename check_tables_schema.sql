@@ -1,0 +1,1 @@
+\n-- Verificar estructura de tablas clave\nSELECT column_name, data_type, is_nullable, column_default\nFROM information_schema.columns\nWHERE table_schema = 'public' \n  AND table_name IN ('student_profiles', 'subscriptions', 'payment_history')\nORDER BY table_name, ordinal_position;\n
