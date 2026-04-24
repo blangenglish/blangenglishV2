@@ -1,0 +1,25 @@
+{
+  "documents": [],
+  "tables_parsed": [],
+  "tables_source_info": [],
+  "images": [
+    {
+      "original_name": "Screenshot5780",
+      "file_name": "Screenshot5780.png",
+      "file_path": "/data/workspace/2d5c6ad8-b7e3-4b1c-bf4f-bcb44a791d78/blangenglish_academy/public/images/Screenshot5780.png",
+      "rel_path": "images/Screenshot5780.png",
+      "file_type": "png",
+      "category": "images"
+    }
+  ],
+  "summary": {
+    "total_files": 1,
+    "by_category": {
+      "documents": 0,
+      "tables_parsed": 0,
+      "tables_source_info": 0,
+      "images": 1
+    },
+    "processing_time": null
+  }
+}
